@@ -14,6 +14,7 @@ def scrape_kickoff_data():
         kickoffs = []
         touchbacks = []
         returns = []
+        return_avg = []
 
         url = f"https://www.nfl.com/stats/team-stats/special-teams/kickoffs/{year}/reg/all"
         page = requests.get(url)
@@ -26,7 +27,8 @@ def scrape_kickoff_data():
             kickoffs.append(cells[1].text.split()[0])
             touchbacks.append(cells[3].text.split()[0])
             returns.append(cells[5].text.split()[0])
-        current_df = pd.DataFrame({"year": current_year, "team": teams, "kickoffs": kickoffs, "touchbacks": touchbacks, "returns": returns})
+            return_avg.append(cells[6].text.split()[0])
+        current_df = pd.DataFrame({"year": current_year, "team": teams, "kickoffs": kickoffs, "touchbacks": touchbacks, "returns": returns, "return_avg": return_avg})
         df = pd.concat([df, current_df])
     
     return df
@@ -64,19 +66,22 @@ def scrape_return_data():
 kickoff_df = scrape_kickoff_data()
 
 # convert kickoffs, touchbacks, and returns columns to numeric from str for calculations
-kickoff_df[["kickoffs", "touchbacks", "returns"]] = kickoff_df[["kickoffs", "touchbacks", "returns"]].apply(pd.to_numeric)
+kickoff_df[["kickoffs", "touchbacks", "returns", "return_avg"]] = kickoff_df[["kickoffs", "touchbacks", "returns", "return_avg"]].apply(pd.to_numeric)
 
 # calculate return rate and touchback rate
 kickoff_df["return_rate"] = (kickoff_df["returns"] / kickoff_df["kickoffs"] * 100)
 kickoff_df["touchback_rate"] = (kickoff_df["touchbacks"]/ kickoff_df["kickoffs"] * 100)
 
-# calcualte average return rate and touchback rate per year
-average_return_rate = kickoff_df.groupby("year")["return_rate"].mean().round(1)
-average_touchback_rate = kickoff_df.groupby("year")["touchback_rate"].mean().round(1)
+# calculate average return rate, return yards, and touchback rate per year
+average_return_rate = kickoff_df.groupby("year")["return_rate"].mean().round(1).reset_index()
+average_return_yards = kickoff_df.groupby("year")["return_avg"].mean().round(1).reset_index()
+average_touchback_rate = kickoff_df.groupby("year")["touchback_rate"].mean().round(1).reset_index()
 
 # save average return rate and touchback rate DataFrames
 average_return_rate.to_pickle("./data/avg_return_rate.pkl")
 print("Saved average return rate df.")
+average_return_yards.to_pickle("./data/avg_return_yds.pkl")
+print("Saved average return yards df.")
 average_touchback_rate.to_pickle("./data/avg_touchback_rate.pkl")
 print("Saved average touchback rate df.")
 
@@ -87,9 +92,9 @@ return_df = scrape_return_data()
 return_df[["return_tds", "return_20+", "return_40+"]] = return_df[["return_tds", "return_20+", "return_40+"]].apply(pd.to_numeric)
 
 # calculate total returned touchdowns, returns of 20+ yards, and returns of 40+ yards per year
-returned_touchdowns = return_df.groupby("year")["return_tds"].sum()
-returned_20 = return_df.groupby("year")["return_20+"].sum()
-returned_40 = return_df.groupby("year")["return_40+"].sum()
+returned_touchdowns = return_df.groupby("year")["return_tds"].sum().reset_index()
+returned_20 = return_df.groupby("year")["return_20+"].sum().reset_index()
+returned_40 = return_df.groupby("year")["return_40+"].sum().reset_index()
 
 # save returned touchdowns, returned 20+ yards, and returned 40+ yards DataFrames
 returned_touchdowns.to_pickle("./data/returned_touchdowns.pkl")
